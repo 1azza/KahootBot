@@ -27,6 +27,8 @@ if __name__ == '__main__':
 		if filename.endswith(".py"):
 			bot.load_extension(f"Cogs.{filename[:-3]}")
 
+
+
 @bot.event
 async def on_ready():
 	print(f"We have logged in as {bot.user}")

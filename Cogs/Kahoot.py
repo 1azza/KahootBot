@@ -4,7 +4,7 @@ import time
 
 import discord
 from discord.ext import commands, tasks 
-
+from discord.ui import Button, View
 from Kahoot import client
 
 client = client.client()
@@ -17,14 +17,6 @@ class KahootCog(commands.Cog, name="Kahoot"):
 
 
 
-    async def getStatus(self, FG='❌', PL='❌', GP='❌', WP='❌'):
-            embed = discord.Embed(title=f"Status", color=0x431b93)
-            embed.add_field(name="SessionInitialised", value=FG, inline=False)
-            embed.add_field(name="GameLoaded", value=PL, inline=False)
-            embed.add_field(name="GeneratedPin", value=GP, inline=False)
-            embed.add_field(name="WaitingForPlayers", value=WP, inline=False)
-            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-            return embed
 
 
     @tasks.loop(seconds=1)
@@ -32,8 +24,15 @@ class KahootCog(commands.Cog, name="Kahoot"):
             self.n_player = client.checkPlayerJoin()
             if self.n_player != self.l_player:
                     await ctx.send(f'Player joined! **{self.n_player.text}**')
+                    self.startBtn.disabled = False
+                    await self.UpdateView()
             self.l_player = self.n_player
 
+    async def UpdateView(self):
+            self.view.clear_items()
+            self.view.add_item(self.startBtn)
+            self.view.add_item(self.stopBtn)
+            await self.status.edit(view=self.view)
 
 
 
@@ -42,33 +41,42 @@ class KahootCog(commands.Cog, name="Kahoot"):
                     description="Initiate a new kahoot game")
     @commands.cooldown(1, 2, commands.BucketType.member)
     async def initiate(self, ctx):
-            self.embed = await self.getStatus('✅')
-            print(client.driver)
-            
+
+            self.startBtn = Button(label='Start', style=discord.ButtonStyle.green, emoji="✔", disabled=True)
+            self.stopBtn = Button(
+                label='StopGame', style=discord.ButtonStyle.green, emoji="✔", disabled=False)
+            self.view = View()
+
+
+            self.embed = discord.Embed(title=f"Status", color=0xFF00BB)
+            self.embed.add_field(name="Init", value='❌', inline=True)
+            self.embed.add_field(name="pin", value='❌', inline=True)
+            self.embed.add_field(name="ready", value='❌', inline=True)
+            self.embed.set_thumbnail(url=self.bot.user.display_avatar.url)
             self.status = await ctx.send(embed=self.embed)
+            await self.UpdateView()
             client.Initiate(
                 'https://play.kahoot.it/v2/?quizId=ff83588e-ccb6-498b-9986-3433a29c4dea')
-            await self.status.edit(embed=await self.getStatus('✅', '✅'))
+            self.embed.set_field_at(index=0, name='Init', value='✅')
+            await self.status.edit(embed=self.embed)
             client.fetchInfo()
-            await self.status.edit(embed=await self.getStatus('✅', '✅', '✅'))
-            self.embed.set_footer(
-                 text=client.link)
-            await self.status.edit(embed=await self.getStatus('✅', '✅', '✅', '✅'))
-            self.embed = await self.getStatus('✅', '✅', '✅', '✅')
+            self.embed.set_field_at(index=0, name='Ready', value='✅')
+            self.embed.add_field(name="Players", value='None', inline=True)
+
+            self.embed.add_field(name = 'link', value=client.link, inline=False)
             file = discord.File("Assets\PIN.png", filename="PIN.png")
             self.embed.set_image(
                 url="attachment://PIN.png")
             await self.status.edit(file=file, embed=self.embed)
+            #Now ready
+            await self.status.edit(embed=self.embed, view=self.view)
+            
             self.l_player = 0
             self.PlayerCheckLoop.start(ctx)
 
 
 
 
-    @commands.command(name='Start',
-                          usage="",
-                          description="Skip player queue")
-    @commands.cooldown(1, 2, commands.BucketType.member)
     async def Start(self, ctx):
         await ctx.send('Starting Game...')
         self.PlayerCheckLoop.cancel()
